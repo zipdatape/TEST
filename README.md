@@ -1,211 +1,223 @@
-# DIAGRAMA DE MIGRACIÓN A LA NUBE - OROCOM
+# PROPUESTA DE MIGRACIÓN A LA NUBE - AWS
+## OROCOM - Migración de Infraestructura Local a AWS
 
-## Arquitectura de Migración Propuesta
+### RESUMEN EJECUTIVO
+
+Basándome en el inventario de servidores y la infraestructura actual, propongo una migración completa a AWS que incluye:
+- **Windows Server Active Directory** para gestión de usuarios de dominio
+- **Almacenamiento escalable** para reemplazar el NAS de 27TB
+- **Servidor virtual** para el sistema contable Spring
+- **Arquitectura híbrida** con FortiGate como firewall
+
+---
+
+## ARQUITECTURA PROPUESTA
+
+### Diagrama de Arquitectura AWS
 
 ```mermaid
 graph TB
-    subgraph "Infraestructura Actual"
-        NAS[NAS Storage<br/>27TB]
-        AD_LOCAL[Windows Server AD<br/>Local]
-        SPRING_LOCAL[Spring App<br/>Sistema Contable]
-        FORTIGATE[FortiGate<br/>Firewall]
-        USERS[Usuarios de Dominio]
+    subgraph "Internet"
+        INTERNET[Internet]
     end
     
-    subgraph "Proceso de Migración"
-        MIGRATION[8 Semanas<br/>Migración Gradual]
-    end
-    
-    subgraph "Infraestructura en la Nube"
-        subgraph "VPC Cloud (10.0.0.0/16)"
-            subgraph "Public Subnet (10.0.1.0/24)"
-                IGW[Internet Gateway]
-                NAT[NAT Gateway]
-                BASTION[Bastion Host]
-            end
-            
-            subgraph "Private Subnet (10.0.2.0/24)"
-                AD_CLOUD[Windows Server AD<br/>Domain Controller]
-                SPRING_CLOUD[Spring Application<br/>Sistema Contable]
-            end
-            
-            subgraph "Storage Layer"
-                S3[Cloud Storage<br/>27TB]
-                EFS[File Storage<br/>10TB]
-                RDS[Database<br/>SQL Server]
-            end
-            
-            subgraph "Security & Monitoring"
-                SG[Security Groups]
-                MON[Cloud Monitoring]
-                BACKUP[Automated Backups]
-            end
+    subgraph "AWS VPC - 10.0.0.0/16"
+        subgraph "Public Subnet - 10.0.1.0/24"
+            IGW[Internet Gateway]
+            NAT[NAT Gateway]
+            BASTION[Bastion Host<br/>t3.micro]
+        end
+        
+        subgraph "Private Subnet - 10.0.2.0/24"
+            AD[Windows Server AD<br/>t3.large<br/>Domain Controller]
+            SPRING[Spring App Server<br/>t3.medium<br/>Sistema Contable]
+        end
+        
+        subgraph "Storage Layer"
+            S3[S3 Bucket<br/>27TB Storage<br/>Lifecycle Policies]
+            EFS[EFS File System<br/>Shared Storage<br/>10TB]
+            RDS[RDS SQL Server<br/>db.t3.medium<br/>Database]
+        end
+        
+        subgraph "Security & Monitoring"
+            SG[Security Groups]
+            CW[CloudWatch<br/>Monitoring]
+            BACKUP[AWS Backup<br/>Automated Backups]
         end
     end
     
-    NAS --> MIGRATION
-    AD_LOCAL --> MIGRATION
-    SPRING_LOCAL --> MIGRATION
+    subgraph "On-Premises"
+        FORTIGATE[FortiGate Firewall]
+        NAS[NAS Storage<br/>27TB - Migración]
+        USERS[Usuarios de Dominio]
+    end
+    
+    INTERNET --> FORTIGATE
     FORTIGATE --> IGW
-    MIGRATION --> AD_CLOUD
-    MIGRATION --> SPRING_CLOUD
-    MIGRATION --> S3
-    MIGRATION --> EFS
-    MIGRATION --> RDS
-    
+    IGW --> BASTION
     IGW --> NAT
-    NAT --> AD_CLOUD
-    NAT --> SPRING_CLOUD
+    NAT --> AD
+    NAT --> SPRING
     
-    AD_CLOUD --> S3
-    AD_CLOUD --> EFS
-    SPRING_CLOUD --> RDS
-    SPRING_CLOUD --> EFS
+    AD --> S3
+    AD --> EFS
+    SPRING --> RDS
+    SPRING --> EFS
     
-    SG --> AD_CLOUD
-    SG --> SPRING_CLOUD
+    SG --> AD
+    SG --> SPRING
     SG --> BASTION
     
-    MON --> AD_CLOUD
-    MON --> SPRING_CLOUD
+    CW --> AD
+    CW --> SPRING
     BACKUP --> S3
     BACKUP --> EFS
     BACKUP --> RDS
     
-    AD_CLOUD -.-> USERS
-    SPRING_CLOUD -.-> USERS
-    
-    classDef current fill:#e74c3c,stroke:#c0392b,color:#fff
-    classDef cloud fill:#3498db,stroke:#2980b9,color:#fff
-    classDef migration fill:#f39c12,stroke:#e67e22,color:#fff
-    classDef storage fill:#2ecc71,stroke:#27ae60,color:#fff
-    classDef security fill:#9b59b6,stroke:#8e44ad,color:#fff
-    
-    class NAS,AD_LOCAL,SPRING_LOCAL,FORTIGATE current
-    class AD_CLOUD,SPRING_CLOUD,IGW,NAT,BASTION cloud
-    class MIGRATION migration
-    class S3,EFS,RDS storage
-    class SG,MON,BACKUP security
+    AD -.-> USERS
+    SPRING -.-> USERS
 ```
-
-## Comparación de Costos
-
-```mermaid
-graph LR
-    subgraph "Costos Mensuales"
-        AWS[AWS<br/>$1,448.50]
-        GCP[Google Cloud<br/>$1,253.50]
-        AZURE[Microsoft Azure<br/>$1,400.00]
-        CURRENT[Infraestructura Actual<br/>$2,500.00]
-    end
-    
-    subgraph "Ahorro Anual"
-        SAVINGS_GCP[Ahorro con GCP<br/>$14,958]
-        SAVINGS_AWS[Ahorro con AWS<br/>$12,618]
-        SAVINGS_AZURE[Ahorro con Azure<br/>$13,200]
-    end
-    
-    CURRENT --> SAVINGS_GCP
-    CURRENT --> SAVINGS_AWS
-    CURRENT --> SAVINGS_AZURE
-    
-    classDef gcp fill:#4285f4,stroke:#2980b9,color:#fff
-    classDef aws fill:#ff9900,stroke:#e67e22,color:#fff
-    classDef azure fill:#00a1f1,stroke:#2980b9,color:#fff
-    classDef current fill:#e74c3c,stroke:#c0392b,color:#fff
-    
-    class GCP,SAVINGS_GCP gcp
-    class AWS,SAVINGS_AWS aws
-    class AZURE,SAVINGS_AZURE azure
-    class CURRENT current
-```
-
-## Plan de Migración por Fases
-
-```mermaid
-gantt
-    title Plan de Migración a la Nube - OROCOM
-    dateFormat  YYYY-MM-DD
-    section Fase 1: Preparación
-    Configuración AWS/GCP Account    :done, config, 2025-08-01, 14d
-    Diseño de Red                    :done, network, 2025-08-01, 14d
-    Configuración IAM                :done, iam, 2025-08-01, 14d
-    
-    section Fase 2: Infraestructura Base
-    Windows Server AD                :active, ad, 2025-08-15, 14d
-    Cloud Storage                    :active, storage, 2025-08-15, 14d
-    Database Setup                   :active, db, 2025-08-15, 14d
-    
-    section Fase 3: Aplicaciones
-    Spring Application               :spring, 2025-08-29, 14d
-    Migración de Datos               :data, 2025-08-29, 14d
-    Configuración DNS                :dns, 2025-08-29, 14d
-    
-    section Fase 4: Pruebas y Corte
-    Testing                          :test, 2025-09-12, 7d
-    Validación                       :validation, 2025-09-12, 7d
-    Corte de Servicios               :cutover, 2025-09-19, 7d
-```
-
-## Flujo de Datos en la Arquitectura Final
-
-```mermaid
-flowchart TD
-    USERS[Usuarios] --> FORTIGATE[FortiGate Firewall]
-    FORTIGATE --> IGW[Internet Gateway]
-    IGW --> NAT[NAT Gateway]
-    
-    NAT --> AD[Windows Server AD]
-    NAT --> SPRING[Spring Application]
-    
-    AD --> S3[Cloud Storage 27TB]
-    AD --> EFS[File Storage 10TB]
-    SPRING --> RDS[Database SQL Server]
-    SPRING --> EFS
-    
-    S3 --> BACKUP[Automated Backups]
-    EFS --> BACKUP
-    RDS --> BACKUP
-    
-    AD --> MON[Cloud Monitoring]
-    SPRING --> MON
-    
-    MON --> ALERTS[Alertas y Notificaciones]
-    BACKUP --> DR[Disaster Recovery]
-    
-    classDef users fill:#34495e,stroke:#2c3e50,color:#fff
-    classDef network fill:#3498db,stroke:#2980b9,color:#fff
-    classDef apps fill:#2ecc71,stroke:#27ae60,color:#fff
-    classDef storage fill:#f39c12,stroke:#e67e22,color:#fff
-    classDef monitoring fill:#9b59b6,stroke:#8e44ad,color:#fff
-    
-    class USERS users
-    class FORTIGATE,IGW,NAT network
-    class AD,SPRING apps
-    class S3,EFS,RDS storage
-    class MON,BACKUP,ALERTS,DR monitoring
-```
-
-## Recomendación Final
-
-### 🏆 **Google Cloud Platform (GCP)**
-
-**Ventajas principales:**
-- ✅ **Costo más bajo**: $1,253.50/mes
-- ✅ **Ahorro anual**: $14,958 USD
-- ✅ **Mejor rendimiento de red**
-- ✅ **Herramientas de análisis avanzadas**
-- ✅ **Escalabilidad automática**
-
-**Servicios GCP recomendados:**
-- **Compute Engine**: Windows Server AD y Spring Application
-- **Cloud Storage**: 27TB de almacenamiento
-- **Filestore**: 10TB para archivos compartidos
-- **Cloud SQL**: Base de datos SQL Server
-- **Cloud Monitoring**: Monitoreo y alertas
-- **Cloud Backup**: Backups automáticos
 
 ---
 
-*Diagrama generado el: 28 de Julio 2025*
-*Basado en inventario de servidores OROCOM* 
+## ANÁLISIS DE COSTOS - AWS
+
+### Servicios Principales
+
+| Servicio | Especificación | Costo Mensual (USD) |
+|----------|----------------|---------------------|
+| **EC2 Windows Server AD** | t3.large (2vCPU, 8GB RAM) | $70.00 |
+| **EC2 Spring Application** | t3.medium (2vCPU, 4GB RAM) | $35.00 |
+| **EC2 Bastion Host** | t3.micro (2vCPU, 1GB RAM) | $8.50 |
+| **S3 Storage** | 27TB (Standard) | $675.00 |
+| **EFS Storage** | 10TB | $300.00 |
+| **RDS SQL Server** | db.t3.medium | $150.00 |
+| **NAT Gateway** | Data Transfer | $45.00 |
+| **CloudWatch** | Monitoring | $15.00 |
+| **AWS Backup** | Automated Backups | $50.00 |
+| **Data Transfer** | Internet Egress | $100.00 |
+
+### **COSTO TOTAL MENSUAL: $1,448.50 USD**
+
+---
+
+## PLAN DE MIGRACIÓN
+
+### Fase 1: Preparación (Semana 1-2)
+1. **Configuración de AWS Account**
+   - Crear cuenta AWS con MFA
+   - Configurar billing alerts
+   - Establecer IAM roles y políticas
+
+2. **Diseño de Red**
+   - Configurar VPC con subnets públicas y privadas
+   - Configurar Security Groups
+   - Establecer NAT Gateway
+
+### Fase 2: Infraestructura Base (Semana 3-4)
+1. **Windows Server AD**
+   - Desplegar EC2 Windows Server 2019
+   - Configurar Active Directory
+   - Migrar usuarios y políticas de dominio
+
+2. **Almacenamiento**
+   - Configurar S3 buckets con lifecycle policies
+   - Establecer EFS para archivos compartidos
+   - Configurar RDS para bases de datos
+
+### Fase 3: Aplicaciones (Semana 5-6)
+1. **Sistema Spring**
+   - Desplegar EC2 para aplicación Spring
+   - Migrar aplicación contable
+   - Configurar conexiones a base de datos
+
+2. **Integración**
+   - Configurar DNS y routing
+   - Establecer VPN con FortiGate
+   - Migrar datos del NAS
+
+### Fase 4: Pruebas y Corte (Semana 7-8)
+1. **Testing**
+   - Pruebas de conectividad
+   - Validación de aplicaciones
+   - Pruebas de rendimiento
+
+2. **Corte de Servicios**
+   - Migración final de datos
+   - Corte de servicios locales
+   - Monitoreo post-migración
+
+---
+
+## VENTAJAS DE LA PROPUESTA AWS
+
+### ✅ **Escalabilidad**
+- Storage automáticamente escalable
+- Capacidad de procesamiento bajo demanda
+- Reducción de costos en períodos de baja actividad
+
+### ✅ **Seguridad**
+- Security Groups y NACLs
+- Encriptación en tránsito y en reposo
+- Integración con FortiGate existente
+
+### ✅ **Disponibilidad**
+- 99.9% SLA de disponibilidad
+- Backups automáticos
+- Recuperación ante desastres
+
+### ✅ **Costos**
+- Pago por uso
+- Sin costos de mantenimiento de hardware
+- Optimización automática de recursos
+
+---
+
+## RIESGOS Y MITIGACIONES
+
+| Riesgo | Impacto | Mitigación |
+|--------|---------|------------|
+| **Corte de Internet** | Alto | VPN redundante, conexión secundaria |
+| **Pérdida de Datos** | Crítico | Backups múltiples, replicación cross-region |
+| **Costos Inesperados** | Medio | Budget alerts, cost optimization |
+| **Complejidad Técnica** | Medio | Soporte AWS, documentación detallada |
+
+---
+
+## PRÓXIMOS PASOS
+
+1. **Aprobación de Propuesta**
+   - Revisión técnica del equipo
+   - Aprobación de presupuesto
+   - Definición de timeline
+
+2. **Preparación Técnica**
+   - Configuración de AWS Account
+   - Preparación de scripts de migración
+   - Capacitación del equipo
+
+3. **Inicio de Migración**
+   - Comenzar con Fase 1
+   - Establecer métricas de éxito
+   - Comunicación a usuarios
+
+---
+
+## ALTERNATIVAS DE PROVEEDORES
+
+### Microsoft Azure
+- **Ventaja**: Integración nativa con Windows Server
+- **Costo**: Similar a AWS (~$1,400/mes)
+- **Desventaja**: Menos flexibilidad en servicios
+
+### Google Cloud Platform
+- **Ventaja**: Mejor rendimiento de red
+- **Costo**: Ligeramente menor (~$1,300/mes)
+- **Desventaja**: Menos madurez en servicios empresariales
+
+### **RECOMENDACIÓN: AWS** por madurez, documentación y soporte empresarial.
+
+---
+
+*Propuesta generada el: 28 de Julio 2025*
+*Basada en inventario de servidores OROCOM* 
