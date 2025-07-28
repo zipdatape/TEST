@@ -22,63 +22,54 @@ Migrar la infraestructura de OROCOM a **Microsoft Azure** aprovechando **Azure A
 
 ```mermaid
 graph TB
-    subgraph "EXTERNAL"
-        WEB[🌐 Internet]
-    end
-    
-    subgraph "ON-PREMISES"
-        FORTIGATE[🛡️ FortiGate Firewall]
-        USERS[👥 Usuarios de Dominio<br/>50+ usuarios]
-        NAS[💾 NAS Storage<br/>27TB - Migración]
-    end
-    
-    subgraph "MICROSOFT AZURE"
-        subgraph "Azure Virtual Network (10.0.0.0/16)"
-            subgraph "Public Subnet (10.0.1.0/24)"
-                IGW[🌐 Internet Gateway]
-                NAT[🔄 NAT Gateway]
-                BASTION[🔑 Azure Bastion<br/>Acceso Seguro]
-            end
-            
-            subgraph "Private Subnet (10.0.2.0/24)"
-                AD[🏢 Azure AD Domain Services<br/>Managed Domain Controller]
-                SPRING[☕ Spring Application<br/>D2s v3 (2vCPU, 8GB RAM)]
-            end
-            
-            subgraph "Azure Storage & Data"
-                STORAGE[📦 Azure Storage Account<br/>27TB - Blob Storage<br/>Lifecycle Management]
-                FILES[📁 Azure Files<br/>10TB - SMB/NFS Shares]
-                SQL[🗄️ Azure SQL Database<br/>SQL Server Managed Instance]
-            end
-            
-            subgraph "Security & Management"
-                AAD[👤 Azure Active Directory<br/>Identity Management]
-                SENTINEL[🔍 Azure Sentinel<br/>SIEM & Security]
-                BACKUP[💾 Azure Backup<br/>Automated Recovery]
-                MONITOR[📊 Azure Monitor<br/>Observability]
-            end
+    subgraph "SERVICIOS AZURE NECESARIOS"
+        subgraph "COMPUTE - $195/mes"
+            AD[🏢 Active Directory<br/>$120/mes]
+            SPRING[☕ Spring App<br/>$70/mes]
+            BASTION[🔑 Acceso Seguro<br/>$25/mes]
+        end
+        
+        subgraph "STORAGE - $990/mes"
+            STORAGE[📦 Almacenamiento<br/>27TB - $540/mes]
+            FILES[📁 Archivos Compartidos<br/>10TB - $300/mes]
+            SQL[🗄️ Base de Datos<br/>$150/mes]
+        end
+        
+        subgraph "SEGURIDAD - $170/mes"
+            AAD[👤 Gestión de Usuarios<br/>$0/mes]
+            SENTINEL[🔍 Seguridad Avanzada<br/>$100/mes]
+            BACKUP[💾 Backups Automáticos<br/>$50/mes]
+            MONITOR[📊 Monitoreo<br/>$20/mes]
+        end
+        
+        subgraph "REDES - $100/mes"
+            NETWORK[🌐 Conectividad<br/>$100/mes]
         end
     end
     
-    %% Connections
-    WEB --> FORTIGATE
-    FORTIGATE --> IGW
-    IGW --> NAT
-    IGW --> BASTION
+    subgraph "USUARIOS"
+        USERS[👥 50+ Usuarios<br/>Acceso Remoto]
+    end
     
-    NAT --> AD
-    NAT --> SPRING
+    subgraph "DATOS A MIGRAR"
+        DATA[💾 27TB de Datos<br/>NAS Actual]
+    end
+    
+    %% Connections
+    USERS --> AAD
+    USERS --> AD
+    USERS --> SPRING
+    
+    DATA --> STORAGE
+    DATA --> FILES
     
     AD --> STORAGE
     AD --> FILES
     SPRING --> SQL
     SPRING --> FILES
     
-    AAD --> AD
-    AAD --> SPRING
     SENTINEL --> AD
     SENTINEL --> SPRING
-    
     MONITOR --> AD
     MONITOR --> SPRING
     MONITOR --> SQL
@@ -87,48 +78,73 @@ graph TB
     BACKUP --> FILES
     BACKUP --> SQL
     
-    AD -.-> USERS
-    SPRING -.-> USERS
-    AAD -.-> USERS
-    
-    NAS -.-> STORAGE
+    NETWORK --> AD
+    NETWORK --> SPRING
+    NETWORK --> BASTION
     
     %% Styling
-    classDef external fill:#95a5a6,stroke:#7f8c8d,color:#fff
-    classDef onprem fill:#e74c3c,stroke:#c0392b,color:#fff
-    classDef azure fill:#0078d4,stroke:#106ebe,color:#fff
+    classDef compute fill:#2ecc71,stroke:#27ae60,color:#fff
     classDef storage fill:#f39c12,stroke:#e67e22,color:#fff
     classDef security fill:#9b59b6,stroke:#8e44ad,color:#fff
-    classDef apps fill:#2ecc71,stroke:#27ae60,color:#fff
+    classDef network fill:#3498db,stroke:#2980b9,color:#fff
+    classDef users fill:#e74c3c,stroke:#c0392b,color:#fff
+    classDef data fill:#95a5a6,stroke:#7f8c8d,color:#fff
     
-    class WEB external
-    class FORTIGATE,USERS,NAS onprem
-    class IGW,NAT,BASTION azure
+    class AD,SPRING,BASTION compute
     class STORAGE,FILES,SQL storage
     class AAD,SENTINEL,BACKUP,MONITOR security
-    class AD,SPRING apps
+    class NETWORK network
+    class USERS users
+    class DATA data
 ```
 
 ---
 
 ## 💰 ANÁLISIS FINANCIERO
 
-### 📊 **Comparación de Costos - Microsoft Azure**
+## 💰 RESUMEN DE RECURSOS Y COSTOS
 
-| Servicio Azure | Especificación | Costo Mensual (USD) |
-|----------------|----------------|---------------------|
-| **Azure AD Domain Services** | Managed Domain Controller | $120.00 |
-| **Azure VM (Spring App)** | D2s v3 (2vCPU, 8GB RAM) | $70.00 |
-| **Azure Bastion** | Secure Access | $25.00 |
-| **Azure Storage Account** | 27TB (Hot Tier) | $540.00 |
-| **Azure Files** | 10TB Premium | $300.00 |
-| **Azure SQL Database** | Managed Instance | $150.00 |
-| **Azure Sentinel** | SIEM & Security | $100.00 |
-| **Azure Monitor** | Observability | $20.00 |
-| **Azure Backup** | Automated Backups | $50.00 |
-| **Data Transfer** | Internet Egress | $100.00 |
+### 📊 **Servicios Azure Necesarios**
 
-### **COSTO TOTAL MENSUAL: $1,475.00 USD**
+| Categoría | Servicio | Capacidad/Especificación | Costo Mensual |
+|-----------|----------|--------------------------|---------------|
+| **🏢 COMPUTE** | Active Directory | Gestión de usuarios | $120 |
+| | Spring Application | Sistema contable | $70 |
+| | Acceso Seguro | Bastion Host | $25 |
+| **📦 STORAGE** | Almacenamiento | 27TB (reemplaza NAS) | $540 |
+| | Archivos Compartidos | 10TB | $300 |
+| | Base de Datos | SQL Server | $150 |
+| **🔒 SEGURIDAD** | Gestión de Usuarios | Azure AD | $0 |
+| | Seguridad Avanzada | Azure Sentinel | $100 |
+| | Backups Automáticos | Azure Backup | $50 |
+| | Monitoreo | Azure Monitor | $20 |
+| **🌐 REDES** | Conectividad | Data Transfer | $100 |
+
+### **💰 COSTO TOTAL MENSUAL: $1,475 USD**
+### **💰 COSTO TOTAL ANUAL: $17,700 USD**
+
+### 📊 **Distribución de Costos por Categoría**
+
+```mermaid
+pie title Distribución de Costos Mensuales - Azure
+    "Storage (Almacenamiento)" : 990
+    "Compute (Procesamiento)" : 195
+    "Seguridad" : 170
+    "Redes" : 100
+    "Otros" : 20
+```
+
+### 📈 **Comparación: Actual vs Azure**
+
+| Concepto | Infraestructura Actual | Microsoft Azure | Ahorro Anual |
+|----------|------------------------|-----------------|--------------|
+| **Servidores** | $15,000 | $2,340 | $12,660 |
+| **Almacenamiento** | $8,000 | $11,880 | -$3,880 |
+| **Mantenimiento** | $12,000 | $0 | $12,000 |
+| **Energía** | $3,000 | $0 | $3,000 |
+| **Licencias** | $6,000 | $1,440 | $4,560 |
+| **Seguridad** | $2,000 | $2,040 | -$40 |
+| **TOTAL ANUAL** | **$46,000** | **$17,700** | **$28,300** |
 
 ### 📈 **Análisis de Ahorro vs Infraestructura Actual**
 
