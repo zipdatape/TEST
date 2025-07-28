@@ -1,182 +1,321 @@
-# REPORTE EJECUTIVO - MIGRACIÓN A LA NUBE
-## OROCOM - Propuesta de Transformación Digital
+# ARQUITECTURA PROPUESTA - MIGRACIÓN A LA NUBE OROCOM
 
----
+## 🏗️ ARQUITECTURA DETALLADA RECOMENDADA
 
-## RESUMEN EJECUTIVO
-
-### 🎯 **OBJETIVO**
-Migrar la infraestructura actual de OROCOM a la nube para optimizar costos, mejorar la escalabilidad y garantizar la continuidad del negocio.
-
-### 📊 **SITUACIÓN ACTUAL**
-- **5 servidores** identificados (2.14, 2.2, 2.3, 2.93, 203)
-- **27TB de almacenamiento** en NAS local
-- **Windows Server AD** para gestión de usuarios
-- **Sistema Spring** para contabilidad
-- **FortiGate** como firewall principal
-
----
-
-## PROPUESTA DE MIGRACIÓN
-
-### 🏗️ **ARQUITECTURA PROPUESTA**
+### Diagrama Principal de Arquitectura
 
 ```mermaid
-graph LR
-    A[Usuarios] --> B[FortiGate]
-    B --> C[Cloud VPC]
-    C --> D[Windows Server AD]
-    C --> E[Spring Application]
-    C --> F[Cloud Storage 27TB]
-    C --> G[Database]
+graph TB
+    subgraph "INTERNET"
+        INTERNET[🌐 Internet]
+    end
+    
+    subgraph "ON-PREMISES"
+        FORTIGATE[🛡️ FortiGate Firewall<br/>IP: 192.168.1.1]
+        USERS[👥 Usuarios de Dominio<br/>50+ usuarios]
+        NAS[💾 NAS Storage<br/>27TB - Migración]
+    end
+    
+    subgraph "GOOGLE CLOUD PLATFORM"
+        subgraph "VPC: oro-com-vpc (10.0.0.0/16)"
+            subgraph "Public Subnet: 10.0.1.0/24"
+                IGW[🌐 Internet Gateway]
+                NAT[🔄 Cloud NAT<br/>IP: 10.0.1.1]
+                BASTION[🔑 Bastion Host<br/>e2-micro<br/>10.0.1.10]
+            end
+            
+            subgraph "Private Subnet: 10.0.2.0/24"
+                AD[🏢 Windows Server AD<br/>e2-standard-2<br/>2vCPU, 8GB RAM<br/>10.0.2.10<br/>Domain Controller]
+                SPRING[☕ Spring Application<br/>e2-standard-2<br/>2vCPU, 8GB RAM<br/>10.0.2.20<br/>Sistema Contable]
+            end
+            
+            subgraph "Storage Layer"
+                CS[📦 Cloud Storage<br/>27TB<br/>Lifecycle Policies<br/>Backup Automático]
+                FS[📁 Filestore<br/>10TB<br/>Shared Storage<br/>NFS/SMB]
+                SQL[🗄️ Cloud SQL<br/>SQL Server<br/>db-standard-2<br/>10.0.2.30]
+            end
+            
+            subgraph "Security & Monitoring"
+                FW[🔒 Firewall Rules<br/>Security Groups]
+                MON[📊 Cloud Monitoring<br/>Alertas y Métricas]
+                BACKUP[💾 Cloud Backup<br/>Automated Backups<br/>Cross-Region]
+                IAM[👤 IAM & Access Control]
+            end
+        end
+    end
+    
+    %% Connections
+    INTERNET --> FORTIGATE
+    FORTIGATE --> IGW
+    IGW --> NAT
+    IGW --> BASTION
+    
+    NAT --> AD
+    NAT --> SPRING
+    
+    AD --> CS
+    AD --> FS
+    SPRING --> SQL
+    SPRING --> FS
+    
+    FW --> AD
+    FW --> SPRING
+    FW --> BASTION
+    
+    MON --> AD
+    MON --> SPRING
+    MON --> SQL
+    
+    BACKUP --> CS
+    BACKUP --> FS
+    BACKUP --> SQL
+    
+    AD -.-> USERS
+    SPRING -.-> USERS
+    
+    NAS -.-> CS
+    
+    %% Styling
+    classDef internet fill:#95a5a6,stroke:#7f8c8d,color:#fff
+    classDef onprem fill:#e74c3c,stroke:#c0392b,color:#fff
+    classDef cloud fill:#3498db,stroke:#2980b9,color:#fff
+    classDef storage fill:#f39c12,stroke:#e67e22,color:#fff
+    classDef security fill:#9b59b6,stroke:#8e44ad,color:#fff
+    classDef apps fill:#2ecc71,stroke:#27ae60,color:#fff
+    
+    class INTERNET internet
+    class FORTIGATE,USERS,NAS onprem
+    class IGW,NAT,BASTION cloud
+    class CS,FS,SQL storage
+    class FW,MON,BACKUP,IAM security
+    class AD,SPRING apps
 ```
 
-### 💰 **ANÁLISIS DE COSTOS**
+## 🔄 FLUJO DE DATOS Y CONECTIVIDAD
 
-| Proveedor | Costo Mensual | Ahorro vs Actual | Tiempo de Migración |
-|-----------|---------------|------------------|---------------------|
-| **Google Cloud Platform** | $1,253.50 | **$1,246.50** (49.9%) | 8 semanas |
-| **AWS** | $1,448.50 | $1,051.50 (42.1%) | 8 semanas |
-| **Microsoft Azure** | $1,400.00 | $1,100.00 (44.0%) | 8 semanas |
-| **Infraestructura Actual** | $2,500.00 | - | - |
+```mermaid
+flowchart TD
+    subgraph "Flujo de Usuarios"
+        USERS[👥 Usuarios] --> VPN[🔗 VPN Connection]
+        VPN --> FORTIGATE[🛡️ FortiGate]
+        FORTIGATE --> CLOUD[☁️ Cloud VPC]
+    end
+    
+    subgraph "Flujo de Aplicaciones"
+        CLOUD --> AD[🏢 Active Directory]
+        CLOUD --> SPRING[☕ Spring App]
+        
+        AD --> STORAGE[💾 Storage Services]
+        SPRING --> STORAGE
+        
+        STORAGE --> BACKUP[💾 Backup Services]
+        STORAGE --> MONITORING[📊 Monitoring]
+    end
+    
+    subgraph "Flujo de Seguridad"
+        SECURITY[🔒 Security Layer] --> AD
+        SECURITY --> SPRING
+        SECURITY --> STORAGE
+    end
+    
+    classDef users fill:#34495e,stroke:#2c3e50,color:#fff
+    classDef network fill:#3498db,stroke:#2980b9,color:#fff
+    classDef apps fill:#2ecc71,stroke:#27ae60,color:#fff
+    classDef storage fill:#f39c12,stroke:#e67e22,color:#fff
+    classDef security fill:#9b59b6,stroke:#8e44ad,color:#fff
+    
+    class USERS,VPN users
+    class FORTIGATE,CLOUD network
+    class AD,SPRING apps
+    class STORAGE,BACKUP storage
+    class SECURITY,MONITORING security
+```
 
-### 🏆 **RECOMENDACIÓN: GOOGLE CLOUD PLATFORM**
+## 📊 ESPECIFICACIONES TÉCNICAS DETALLADAS
 
-**Razones principales:**
-- ✅ **Mayor ahorro de costos**: $1,246.50/mes
-- ✅ **Mejor rendimiento de red**
-- ✅ **Herramientas de análisis avanzadas**
+### 🖥️ **Servidores Virtuales**
+
+| Componente | Especificación | Costo Mensual | Propósito |
+|------------|----------------|---------------|-----------|
+| **Windows Server AD** | e2-standard-2<br/>2vCPU, 8GB RAM<br/>Windows Server 2019 | $65.00 | Domain Controller, Gestión de usuarios |
+| **Spring Application** | e2-standard-2<br/>2vCPU, 8GB RAM<br/>Ubuntu 20.04 LTS | $65.00 | Sistema contable Spring |
+| **Bastion Host** | e2-micro<br/>2vCPU, 1GB RAM<br/>Ubuntu 20.04 LTS | $6.50 | Acceso seguro a servidores privados |
+
+### 💾 **Almacenamiento**
+
+| Servicio | Capacidad | Tipo | Costo Mensual | Propósito |
+|----------|-----------|------|---------------|-----------|
+| **Cloud Storage** | 27TB | Standard | $540.00 | Almacenamiento principal, reemplaza NAS |
+| **Filestore** | 10TB | Basic | $250.00 | Archivos compartidos, NFS/SMB |
+| **Cloud SQL** | 100GB | SQL Server | $140.00 | Base de datos del sistema |
+
+### 🔒 **Seguridad y Redes**
+
+| Componente | Especificación | Propósito |
+|------------|----------------|-----------|
+| **VPC** | 10.0.0.0/16 | Red virtual privada |
+| **Public Subnet** | 10.0.1.0/24 | Servicios públicos (NAT, Bastion) |
+| **Private Subnet** | 10.0.2.0/24 | Servidores de aplicaciones |
+| **Firewall Rules** | Reglas específicas por servicio | Control de acceso |
+| **IAM** | Roles y permisos granulares | Gestión de identidades |
+
+## 🚀 PLAN DE IMPLEMENTACIÓN
+
+```mermaid
+gantt
+    title Plan de Implementación - Arquitectura Cloud OROCOM
+    dateFormat  YYYY-MM-DD
+    section Fase 1: Preparación
+    Configuración GCP Project     :done, gcp, 2025-08-01, 3d
+    Configuración VPC y Redes     :done, vpc, 2025-08-04, 3d
+    Configuración IAM             :done, iam, 2025-08-07, 3d
+    Configuración Firewall        :done, fw, 2025-08-10, 3d
+    
+    section Fase 2: Infraestructura Base
+    Despliegue Windows Server AD  :active, ad, 2025-08-13, 5d
+    Configuración Active Directory :active, adconfig, 2025-08-18, 3d
+    Configuración Cloud Storage   :active, storage, 2025-08-21, 3d
+    Configuración Filestore       :active, filestore, 2025-08-24, 2d
+    
+    section Fase 3: Aplicaciones
+    Despliegue Spring Application :spring, 2025-08-26, 5d
+    Configuración Cloud SQL       :sql, 2025-08-31, 3d
+    Migración de Datos            :migration, 2025-09-03, 7d
+    
+    section Fase 4: Integración
+    Configuración VPN             :vpn, 2025-09-10, 3d
+    Configuración DNS             :dns, 2025-09-13, 2d
+    Pruebas de Conectividad       :testing, 2025-09-15, 3d
+    
+    section Fase 5: Corte
+    Validación Final              :validation, 2025-09-18, 2d
+    Corte de Servicios            :cutover, 2025-09-20, 1d
+    Monitoreo Post-Migración      :monitoring, 2025-09-21, 7d
+```
+
+## 💰 ANÁLISIS DE COSTOS DETALLADO
+
+### 📈 **Costos Mensuales por Categoría**
+
+```mermaid
+pie title Distribución de Costos Mensuales - GCP
+    "Compute Engine" : 136.50
+    "Cloud Storage" : 540.00
+    "Filestore" : 250.00
+    "Cloud SQL" : 140.00
+    "Networking" : 40.00
+    "Monitoring & Backup" : 57.00
+    "Data Transfer" : 90.00
+```
+
+### 💵 **Comparación de Costos Anuales**
+
+| Concepto | Infraestructura Actual | GCP | Ahorro |
+|----------|------------------------|-----|--------|
+| **Servidores** | $15,000 | $1,638 | $13,362 |
+| **Almacenamiento** | $8,000 | $9,480 | -$1,480 |
+| **Mantenimiento** | $12,000 | $0 | $12,000 |
+| **Energía** | $3,000 | $0 | $3,000 |
+| **Licencias** | $6,000 | $1,680 | $4,320 |
+| **TOTAL ANUAL** | **$44,000** | **$12,798** | **$31,202** |
+
+## 🔧 CONFIGURACIÓN TÉCNICA
+
+### 🌐 **Configuración de Red**
+
+```yaml
+VPC Configuration:
+  Name: oro-com-vpc
+  CIDR: 10.0.0.0/16
+  Subnets:
+    - Name: public-subnet
+      CIDR: 10.0.1.0/24
+      Region: us-central1
+    - Name: private-subnet
+      CIDR: 10.0.2.0/24
+      Region: us-central1
+  
+  Firewall Rules:
+    - Name: allow-ssh
+      Ports: 22
+      Source: 0.0.0.0/0
+    - Name: allow-rdp
+      Ports: 3389
+      Source: 10.0.1.0/24
+    - Name: allow-spring-app
+      Ports: 8080, 8443
+      Source: 10.0.2.0/24
+```
+
+### 🔐 **Configuración de Seguridad**
+
+```yaml
+IAM Roles:
+  - Name: oro-com-admin
+    Permissions: Owner
+    Members: [admin@orocom.com]
+  
+  - Name: oro-com-developer
+    Permissions: Editor
+    Members: [dev@orocom.com]
+  
+  - Name: oro-com-viewer
+    Permissions: Viewer
+    Members: [support@orocom.com]
+
+Security Policies:
+  - Enforce MFA for all users
+  - Regular security audits
+  - Automated vulnerability scanning
+  - Encrypted data at rest and in transit
+```
+
+## 📋 CHECKLIST DE IMPLEMENTACIÓN
+
+### ✅ **Preparación (Semana 1-2)**
+- [ ] Crear cuenta GCP con billing habilitado
+- [ ] Configurar VPC y subnets
+- [ ] Configurar IAM roles y políticas
+- [ ] Configurar firewall rules
+- [ ] Configurar Cloud NAT
+
+### ✅ **Infraestructura Base (Semana 3-4)**
+- [ ] Desplegar Windows Server AD
+- [ ] Configurar Active Directory
+- [ ] Configurar Cloud Storage buckets
+- [ ] Configurar Filestore
+- [ ] Configurar Cloud SQL
+
+### ✅ **Aplicaciones (Semana 5-6)**
+- [ ] Desplegar Spring Application
+- [ ] Migrar aplicación contable
+- [ ] Configurar conexiones a base de datos
+- [ ] Migrar datos del NAS
+- [ ] Configurar DNS
+
+### ✅ **Integración (Semana 7-8)**
+- [ ] Configurar VPN con FortiGate
+- [ ] Pruebas de conectividad
+- [ ] Validación de aplicaciones
+- [ ] Corte de servicios locales
+- [ ] Monitoreo post-migración
+
+## 🎯 BENEFICIOS ESPERADOS
+
+### 💡 **Beneficios Inmediatos**
+- ✅ **Ahorro de costos**: $31,202 anuales
+- ✅ **Eliminación de mantenimiento de hardware**
 - ✅ **Escalabilidad automática**
+- ✅ **Backups automáticos**
+
+### 🚀 **Beneficios a Largo Plazo**
+- ✅ **Disponibilidad 99.9%**
+- ✅ **Recuperación ante desastres**
+- ✅ **Acceso remoto global**
+- ✅ **Actualizaciones automáticas**
 
 ---
 
-## BENEFICIOS ESPERADOS
-
-### 💡 **Beneficios Financieros**
-- **Ahorro anual**: $14,958 USD
-- **ROI esperado**: 300% en 2 años
-- **Eliminación de costos de mantenimiento de hardware**
-
-### 🚀 **Beneficios Técnicos**
-- **99.9% de disponibilidad** garantizada
-- **Backups automáticos** y recuperación ante desastres
-- **Escalabilidad automática** según demanda
-- **Seguridad avanzada** con encriptación
-
-### 📈 **Beneficios Operacionales**
-- **Acceso remoto** desde cualquier lugar
-- **Monitoreo en tiempo real**
-- **Actualizaciones automáticas**
-- **Soporte técnico 24/7**
-
----
-
-## PLAN DE MIGRACIÓN
-
-### 📅 **Timeline: 8 Semanas**
-
-| Fase | Duración | Actividades Principales |
-|------|----------|-------------------------|
-| **Fase 1** | Semanas 1-2 | Configuración de cuenta cloud, diseño de red |
-| **Fase 2** | Semanas 3-4 | Despliegue de Windows Server AD y almacenamiento |
-| **Fase 3** | Semanas 5-6 | Migración de aplicación Spring y datos |
-| **Fase 4** | Semanas 7-8 | Pruebas, validación y corte de servicios |
-
-### 🔄 **Estrategia de Migración**
-- **Migración híbrida** (mantener FortiGate)
-- **Migración gradual** por fases
-- **Rollback plan** en caso de problemas
-- **Capacitación del equipo** incluida
-
----
-
-## RIESGOS Y MITIGACIONES
-
-### ⚠️ **Riesgos Identificados**
-
-| Riesgo | Probabilidad | Impacto | Mitigación |
-|--------|--------------|---------|------------|
-| **Corte de Internet** | Baja | Alto | VPN redundante |
-| **Pérdida de Datos** | Muy Baja | Crítico | Backups múltiples |
-| **Costos Inesperados** | Media | Medio | Budget alerts |
-| **Resistencia al Cambio** | Alta | Bajo | Capacitación |
-
-### 🛡️ **Medidas de Seguridad**
-- **Encriptación** en tránsito y en reposo
-- **Access Control** granular
-- **Audit logs** completos
-- **Compliance** con estándares empresariales
-
----
-
-## INVERSIÓN REQUERIDA
-
-### 💵 **Costos de Migración**
-
-| Concepto | Costo Estimado |
-|----------|----------------|
-| **Servicios profesionales** | $15,000 USD |
-| **Licencias adicionales** | $5,000 USD |
-| **Capacitación del equipo** | $3,000 USD |
-| **Contingencia (10%)** | $2,300 USD |
-| **TOTAL INVERSIÓN** | **$25,300 USD** |
-
-### 📈 **ROI Proyectado**
-- **Ahorro anual**: $14,958 USD
-- **Recuperación de inversión**: 20 meses
-- **ROI a 3 años**: 177%
-
----
-
-## PRÓXIMOS PASOS
-
-### 🎯 **Acciones Inmediatas (Semana 1)**
-1. **Aprobación ejecutiva** de la propuesta
-2. **Selección del proveedor** (recomendado: GCP)
-3. **Asignación de presupuesto** para migración
-4. **Formación del equipo** de migración
-
-### 📋 **Acciones a Corto Plazo (Semanas 2-4)**
-1. **Configuración de cuenta** cloud
-2. **Diseño detallado** de arquitectura
-3. **Preparación de scripts** de migración
-4. **Capacitación inicial** del equipo
-
-### 🚀 **Acciones a Mediano Plazo (Semanas 5-8)**
-1. **Inicio de migración** por fases
-2. **Pruebas de concepto**
-3. **Validación de rendimiento**
-4. **Preparación para corte**
-
----
-
-## CONCLUSIONES
-
-### ✅ **La migración a la nube es VITALMENTE RECOMENDADA**
-
-**Razones principales:**
-1. **Ahorro significativo** de costos operativos
-2. **Mejora sustancial** en disponibilidad y seguridad
-3. **Escalabilidad futura** garantizada
-4. **Competitividad** en el mercado digital
-
-### 🎯 **Recomendación Final**
-**Proceder con Google Cloud Platform** por su combinación óptima de costos, rendimiento y herramientas empresariales.
-
----
-
-## APÉNDICES
-
-### 📊 **Detalles Técnicos**
-- [Propuesta AWS Detallada](PROPUESTA_MIGRACION_CLOUD_AWS.md)
-- [Propuesta GCP Detallada](PROPUESTA_MIGRACION_CLOUD_GCP.md)
-- [Diagrama de Arquitectura](DIAGRAMA_MIGRACION_CLOUD.svg)
-
-### 📞 **Contacto**
-Para más información o consultas sobre esta propuesta, contactar al equipo de IT.
-
----
-
-*Reporte generado el: 28 de Julio 2025*
-*Basado en inventario de servidores OROCOM*
-*Análisis de costos actualizado a precios 2025* 
+*Arquitectura propuesta generada el: 28 de Julio 2025*
+*Basada en inventario de servidores OROCOM*
+*Recomendación: Google Cloud Platform* 
