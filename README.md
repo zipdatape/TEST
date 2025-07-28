@@ -6,8 +6,8 @@
 
 ```mermaid
 graph TB
-    subgraph "INTERNET"
-        INTERNET[🌐 Internet]
+    subgraph "EXTERNAL"
+        WEB[🌐 Internet]
     end
     
     subgraph "ON-PREMISES"
@@ -45,7 +45,7 @@ graph TB
     end
     
     %% Connections
-    INTERNET --> FORTIGATE
+    WEB --> FORTIGATE
     FORTIGATE --> IGW
     IGW --> NAT
     IGW --> BASTION
@@ -76,14 +76,14 @@ graph TB
     NAS -.-> CS
     
     %% Styling
-    classDef internet fill:#95a5a6,stroke:#7f8c8d,color:#fff
+    classDef external fill:#95a5a6,stroke:#7f8c8d,color:#fff
     classDef onprem fill:#e74c3c,stroke:#c0392b,color:#fff
     classDef cloud fill:#3498db,stroke:#2980b9,color:#fff
     classDef storage fill:#f39c12,stroke:#e67e22,color:#fff
     classDef security fill:#9b59b6,stroke:#8e44ad,color:#fff
     classDef apps fill:#2ecc71,stroke:#27ae60,color:#fff
     
-    class INTERNET internet
+    class WEB external
     class FORTIGATE,USERS,NAS onprem
     class IGW,NAT,BASTION cloud
     class CS,FS,SQL storage
